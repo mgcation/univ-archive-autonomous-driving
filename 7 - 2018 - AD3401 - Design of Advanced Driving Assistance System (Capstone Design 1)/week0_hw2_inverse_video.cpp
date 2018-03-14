@@ -12,7 +12,7 @@ void save_inverse_video(VideoCapture&, VideoWriter&);
 	backward 로 재생하도록 파일로 출력한다.
 	*/
 int week0_hw2_inverse_video::run(){
-	VideoCapture capture("resource/sample_seq.avi");
+	VideoCapture capture("resource/sample_seq.mp4");
 	if (!capture.isOpened()){
 		printf("invalid file");
 		getchar();
