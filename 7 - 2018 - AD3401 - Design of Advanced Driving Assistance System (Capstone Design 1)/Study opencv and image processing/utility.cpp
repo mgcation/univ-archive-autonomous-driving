@@ -30,9 +30,18 @@ char utility::my_imread(Mat& img, const char* filename, int IMREAD_FLAGS){
 }
 
 bool utility::checkEsc(){
-	char c = (char)waitKey(30);
+	char c = (char)waitKey(0);
 	if (c == 27)
 		return true;
+	return false;
+}
+
+bool utility::checkEnter(){
+	char c = (char)waitKey(0);
+	if (c == 13){
+		fflush(stdin);
+		return true;
+	}
 	return false;
 }
 
@@ -130,4 +139,55 @@ uchar utility::calc_MSE(Mat target1, Mat target2, bool print, const char* msg){
 		}
 		return err;
 	}
+}
+
+void utility::add_image_to_background(Mat background, Mat image, int posX, int posY){
+	int imX = (posX < 0)*-posX;
+	int imY = (posY < 0)*-posY;
+	int imWidth = image.cols - imX;
+	int imHeight = image.rows - imY;
+	if (imWidth <= 0 || imHeight <= 0){
+		return;
+	}
+
+	int mHeight = min((background.rows - posY), imHeight);
+	int mWidth = min((background.cols - posX), imWidth);
+	if (0 < mHeight && 0 < mWidth) {
+		Mat sub_background = background(Rect((posX > 0)*posX, (posY > 0)*posY, mWidth, mHeight));
+		Mat sub_image = image(Rect(imX, imY, mWidth, mHeight));
+		add(0, sub_image, sub_background);
+	}
+}
+
+string utility::type2str(int type) {
+	// https://stackoverflow.com/a/17820615/7354469
+	string r;
+
+	uchar depth = type & CV_MAT_DEPTH_MASK;
+	uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+	switch (depth) {
+	case CV_8U:  r = "8U"; break;
+	case CV_8S:  r = "8S"; break;
+	case CV_16U: r = "16U"; break;
+	case CV_16S: r = "16S"; break;
+	case CV_32S: r = "32S"; break;
+	case CV_32F: r = "32F"; break;
+	case CV_64F: r = "64F"; break;
+	default:     r = "User"; break;
+	}
+
+	r += "C";
+	r += (chans + '0');
+
+	return r;
+}
+
+Mat utility::ifnot_2gray(Mat source){
+	Mat gray;
+	if (source.channels() == 3)
+		cvtColor(source, gray, CV_BGR2GRAY);
+	else
+		gray = source.clone();
+	return gray;
 }
