@@ -50,10 +50,5 @@ MNIST data set을 이용하여 수행. (라이브러리 사용)
 
 ## Implementation applications
 
-### Lane Detection
-
-- [mgcation/lane-detection](https://github.com/mgcation/lane-detection)
-
-Around View Monitoring System
-
-- ~~mgcation/around-view-sys~~
+- Lane Detection
+- Around View Monitoring System

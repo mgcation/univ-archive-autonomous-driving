@@ -1,0 +1,9 @@
+Debug
+packages
+*.sdf
+*.*sdf
+*.sln
+*.vcxproj
+*.vcxproj.*
+*.config
+*.suo
