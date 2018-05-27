@@ -1,81 +1,139 @@
 #include "CameraCalibrator.h"
 
-CameraCalibrator::CameraCalibrator(const char* cameraParamsPath){
+CameraCalibrator::CameraCalibrator(const char* cameraParamsPath, const char* calibrateSampleImagePath){
+	this->sample = imread(calibrateSampleImagePath);
+	assert(("can't read sample file", !sample.empty()));
+
 	for (int i = 0; i < 8; cameraParams[i++] = 0);
-
 	this->cameraParamsPath = cameraParamsPath;
-	ifstream cameraParamsFile(cameraParamsPath);
-
-	if (cameraParamsFile.is_open()){
-		int order = 0;
-		while (!cameraParamsFile.eof() && order < 8){
-			cameraParamsFile >> cameraParams[order];
-			cout << cameraParams[order] << endl;
-			order++;
-		}
-		if (order == 8){
-			this->createMatrix();
-		}
-
-		cameraParamsFile.close();
-	}
+	this->readParameter();
 }
-CameraCalibrator::~CameraCalibrator(){}
+CameraCalibrator::~CameraCalibrator(){
+	cameraMatrix.release();
+	distortionMatrix.release();
+	sample.release();
+}
 
 void CameraCalibrator::createMatrix(){
-	cameraMatrix = (Mat_<double>(3, 3) << cameraParams[0], 0, cameraParams[1], 0, cameraParams[2], cameraParams[3], 0, 0, 1);
-	distortionMatrix = (Mat_<double>(1, 4) << cameraParams[4], cameraParams[5], cameraParams[6], cameraParams[7]);
+	this->cameraMatrix = 
+		(Mat_<double>(3, 3) << cameraParams[0], 0, cameraParams[1], 0, cameraParams[2], cameraParams[3], 0, 0, 1);
+	this->distortionMatrix = 
+		(Mat_<double>(1, 4) << cameraParams[4], cameraParams[5], cameraParams[6], cameraParams[7]);
 }
 
-void CameraCalibrator::parameterSetting(const char* calibrateSampleImagePath){
-	int *paramsInt[8];
-	if (!this->noParams()){
+void CameraCalibrator::readParameter(){
+	ifstream paramsReader(this->cameraParamsPath);
+	bool err_invalid_params = false;
+	bool err_fopen_fail = !paramsReader.is_open();
+
+	if (!err_fopen_fail){
+		int i;
+		for (i = 0; i < 8; i++)
+			paramsReader >> this->cameraParams[i];
+		if (i == 8)
+			this->createMatrix();
+		else
+			err_invalid_params = true;
+	}
+	if (err_invalid_params || err_fopen_fail){
+		// fx, cx, fy, cy, k1, k2, p1, p2
+		this->cameraParams[0] = 500;
+		this->cameraParams[1] = sample.cols / 2;
+		this->cameraParams[2] = 500;
+		this->cameraParams[3] = sample.rows / 2;
+		this->cameraParams[4] = 0;
+		this->cameraParams[5] = 0;
+		this->cameraParams[6] = 0;
+		this->cameraParams[7] = 0;
+		printf("failed to raed parameter : fileOpenError(%c) invalidParameterError(%c)\n",
+			err_fopen_fail ? 'v' : ' ',
+			err_invalid_params ? 'v' : ' ');
+	}
+	paramsReader.close();
+}
+
+void CameraCalibrator::writeParameter(){
+	ofstream paramsWriter(this->cameraParamsPath);
+	bool err_fopen_fail = !paramsWriter.is_open();
+	bool err_no_params = this->noParams();
+	if (!err_fopen_fail && !err_no_params){
 		for (int i = 0; i < 8; i++){
-			paramsInt[i] = 0;
+			paramsWriter << this->cameraParams[i] << endl;
 		}
 	}
 	else {
-		for (int i = 0; i < 4; i++){
-			// 0~3 idx : 0 ~ 99,999 : 0 ~ 999.99
-			// 4~7 idx : 0 ~ 199,999 : -1.00000 ~ 0.99999
-			*paramsInt[i] = (int)(cameraParams[i] * 100);
-		}
-		for (int i = 4; i < 8; i++){
-			*paramsInt[i] = (int)(cameraParams[i] * 100000 + 100000);
-		}
+		printf("failed to write parameter : fileOpenError(%c) noParameterError(%c)\n", 
+			err_fopen_fail ? 'v' : ' ', 
+			err_no_params ? 'v' : ' ');
 	}
+	paramsWriter.close();
+}
+
+void CameraCalibrator::simpleParameterSetting(){
+	this->readParameter();
+
+	int* fxy = (int*)malloc(sizeof(int));
+	int* k12 = (int*)malloc(sizeof(int));
+	*fxy = 50000;
+	*k12 = 100000;
+
+	namedWindow("calibration");
+	createTrackbar("Focal length", "calibration", fxy, 100000, this->fxyCallback, this);
+	createTrackbar("Convexity", "calibration", k12, 200000, this->k12Callback, this);
+
+	imshow("calibration", sample);
+	printf("press any key on image to finish calibration\n");
+	waitKey(0);
+	
+	destroyWindow("calibration");
+	this->writeParameter();
+}
+
+void CameraCalibrator::parameterSetting(){
+	this->readParameter();
+
+	int *paramsInt[8];
+	for (int i = 0; i < 8; i++)
+		paramsInt[i] = (int*)malloc(sizeof(int));
+
+	// 0~3 idx : 0 ~ 99,999 : 0 ~ 999.99
+	for (int i = 0; i < 4; i++)
+		*paramsInt[i] = (int)(this->cameraParams[i] * 100);
+
+	// 4~7 idx : 0 ~ 199,999 : -1.00000 ~ 0.99999
+	for (int i = 4; i < 8; i++)
+		*paramsInt[i] = (int)(this->cameraParams[i] * 100000 + 100000);
+	
 	namedWindow("calibration");
 	createTrackbar("fx", "calibration", paramsInt[0], 100000, this->fxCallback, this);
-	createTrackbar("cx", "calibration", paramsInt[1], 100000, this->cxCallback, this);
 	createTrackbar("fy", "calibration", paramsInt[2], 100000, this->fyCallback, this);
+	createTrackbar("cx", "calibration", paramsInt[1], 100000, this->cxCallback, this);
 	createTrackbar("cy", "calibration", paramsInt[3], 100000, this->cyCallback, this);
 	createTrackbar("k1", "calibration", paramsInt[4], 200000, this->k1Callback, this);
 	createTrackbar("k2", "calibration", paramsInt[5], 200000, this->k2Callback, this);
 	createTrackbar("p1", "calibration", paramsInt[6], 200000, this->p1Callback, this);
 	createTrackbar("p2", "calibration", paramsInt[7], 200000, this->p2Callback, this);
-
-	sample = imread(calibrateSampleImagePath);
 	imshow("calibration", sample);
+
 	printf("press any key on image to finish calibration\n");
 	waitKey(0);
 
+	destroyWindow("calibration");
+
+	// 0~3 idx : 0 ~ 99,999 : 0 ~ 999.99
 	for (int i = 0; i < 4; i++){
-		// 0~3 idx : 0 ~ 99,999 : 0 ~ 999.99
-		cameraParams[i] = (double)*paramsInt[i] / 100;
-	}
-	for (int i = 4; i < 8; i++){
-		// 4~7 idx : 0 ~ 199,999 : -1.00000 ~ 0.99999
-		cameraParams[i] = ((double)*paramsInt[i] - 100000) / 100000;
+		this->cameraParams[i] = (double)*paramsInt[i] / 100;
+		delete(paramsInt[i]);
 	}
 
-	ofstream cameraParamsFile(this->cameraParamsPath);
-	assert(("can't open cameraParamsFile", cameraParamsFile.is_open()));
-	for (int i = 0; i < 8; i++){
-		cameraParamsFile << this->cameraParams[i] << endl;
+	// 4~7 idx : 0 ~ 199,999 : -1.00000 ~ 0.99999
+	for (int i = 4; i < 8; i++){
+		this->cameraParams[i] = ((double)*paramsInt[i] - 100000) / 100000;
+		delete(paramsInt[i]);
 	}
-	cameraParamsFile.close();
 
 	this->createMatrix();
+	this->writeParameter();
 }
 
 bool CameraCalibrator::noParams(){
@@ -88,10 +146,6 @@ Mat CameraCalibrator::undistortImage(const Mat source){
 	Mat ret;
 	undistort(source, ret, this->cameraMatrix, this->distortionMatrix);
 	return ret;
-}
-
-void CameraCalibrator::drawCallback(int v, void* p){
-
 }
 
 void CameraCalibrator::paramsCallback(int idx, int param){
@@ -149,4 +203,34 @@ void CameraCalibrator::p1Callback(int value, void*ptr){
 void CameraCalibrator::p2Callback(int value, void*ptr){
 	CameraCalibrator* calibrator = (CameraCalibrator*)ptr;
 	calibrator->paramsCallback(7, value);
+}
+
+void CameraCalibrator::fxyCallback(int value, void*ptr){
+	CameraCalibrator* calibrator = (CameraCalibrator*)ptr;
+	calibrator->cameraParams[0] = (double)value / 100;
+	calibrator->cameraParams[2] = (double)value / 100;
+
+	calibrator->createMatrix();
+	Mat temp;
+	undistort(calibrator->sample, temp, calibrator->cameraMatrix, calibrator->distortionMatrix);
+	if (!temp.empty()){
+		printf("fxy => %.6lf\n", calibrator->cameraParams[0]);
+		imshow("calibration", temp);
+	}
+	temp.release();
+}
+
+void CameraCalibrator::k12Callback(int value, void*ptr){
+	CameraCalibrator* calibrator = (CameraCalibrator*)ptr;
+	calibrator->cameraParams[4] = ((double)value - 100000) / 100000;
+	calibrator->cameraParams[5] = ((double)value - 100000) / 100000;
+
+	calibrator->createMatrix();
+	Mat temp;
+	undistort(calibrator->sample, temp, calibrator->cameraMatrix, calibrator->distortionMatrix);
+	if (!temp.empty()){
+		printf("k12 => %.6lf\n", calibrator->cameraParams[4]);
+		imshow("calibration", temp);
+	}
+	temp.release();
 }
