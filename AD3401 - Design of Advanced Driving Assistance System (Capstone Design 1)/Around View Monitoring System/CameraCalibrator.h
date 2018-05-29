@@ -29,6 +29,7 @@ private:
 	static void k2Callback(int, void*);
 	static void fxyCallback(int, void*);
 	static void k12Callback(int, void*);
+	static void tvCallback(int, void*);
 
 public:
 	// get 'cameraMatrix', 'distortionMatrix'

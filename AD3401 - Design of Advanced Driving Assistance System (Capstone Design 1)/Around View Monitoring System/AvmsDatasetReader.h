@@ -8,13 +8,18 @@ using namespace std;
 class AvmsDatasetReader
 {
 private:
+	struct AvmsDataset{
+		string data[4];
+	};
+
 	int idx;
-	char* filePath;
+	string dirPath;
+	vector<AvmsDataset> fileNames;
 
 public:
 	AvmsDatasetReader(const char* avmsDatasetDir, const char* avmsDatasetListPath);
 	~AvmsDatasetReader();
 	bool end();
-	Mat read();
+	void read(Mat* dest);
 };
 

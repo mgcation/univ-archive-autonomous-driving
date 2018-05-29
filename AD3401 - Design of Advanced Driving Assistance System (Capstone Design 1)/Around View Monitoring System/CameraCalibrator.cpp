@@ -77,15 +77,22 @@ void CameraCalibrator::simpleParameterSetting(){
 	*fxy = 50000;
 	*k12 = 100000;
 
+	int* tv = (int*)malloc(sizeof(int));
+	*tv = 500;
+
 	namedWindow("calibration");
 	createTrackbar("Focal length", "calibration", fxy, 100000, this->fxyCallback, this);
 	createTrackbar("Convexity", "calibration", k12, 200000, this->k12Callback, this);
+	createTrackbar("TopView", "calibration", tv, 1000, this->tvCallback, this);
 
 	imshow("calibration", sample);
 	printf("press any key on image to finish calibration\n");
 	waitKey(0);
 	
 	destroyWindow("calibration");
+	free(fxy);
+	free(k12);
+	free(tv);
 	this->writeParameter();
 }
 
@@ -230,6 +237,27 @@ void CameraCalibrator::k12Callback(int value, void*ptr){
 	undistort(calibrator->sample, temp, calibrator->cameraMatrix, calibrator->distortionMatrix);
 	if (!temp.empty()){
 		printf("k12 => %.6lf\n", calibrator->cameraParams[4]);
+		imshow("calibration", temp);
+	}
+	temp.release();
+}
+
+void CameraCalibrator::tvCallback(int value, void*ptr){
+	//value 0~1000
+	CameraCalibrator* calibrator = (CameraCalibrator*)ptr;
+	Mat temp;
+	undistort(calibrator->sample, temp, calibrator->cameraMatrix, calibrator->distortionMatrix);
+	int cols = calibrator->sample.cols;
+	int rows = calibrator->sample.rows;
+	double val = ((double)value - 500) / 500; // -1 ~ 1
+	Point2f perspectiveSrc[4] = {
+		Point2f(cols / 4, 0), Point2f(cols / 4, rows),
+		Point2f(cols / 4 * 3, 0), Point2f(cols / 4 * 3, rows) };
+	Point2f perspectiveDest[4] = {
+		Point2f(cols / 4 + val*cols / 4, 0), Point2f(cols / 4 - val*cols / 4, rows),
+		Point2f(cols / 4 * 3 - val*cols / 4 - (val < 0 ? 1 : 0), 0), Point2f(cols / 4 * 3 + val*cols / 4 - (val > 0 ? 1 : 0), rows) };
+	warpPerspective(temp, temp, getPerspectiveTransform(perspectiveSrc, perspectiveDest), temp.size());
+	if (!temp.empty()){
 		imshow("calibration", temp);
 	}
 	temp.release();
