@@ -8,5 +8,6 @@ class AvmsMatcher
 {
 public:
 	static Mat matchImage(Mat left, Mat back, Mat rear, Mat right);
+	static Mat histogramMatching(Mat dataset_undisort, Mat colorTarget);
 };
 
