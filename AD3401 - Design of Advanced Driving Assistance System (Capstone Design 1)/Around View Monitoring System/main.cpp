@@ -55,7 +55,13 @@ v		perspective warping
 			dataset_undistort[i] = cameraCalibrator.undistortImage(dataset[i]);
 		}
 
-		double val = -0.7;
+		Mat colorTarget = dataset_undistort[3];
+		dataset_undistort[0] = AvmsMatcher::histogramMatching(dataset_undistort[0], colorTarget);
+		dataset_undistort[1] = AvmsMatcher::histogramMatching(dataset_undistort[1], colorTarget);
+		dataset_undistort[2] = AvmsMatcher::histogramMatching(dataset_undistort[2], colorTarget);
+		dataset_undistort[3] = AvmsMatcher::histogramMatching(dataset_undistort[3], colorTarget);
+
+		double val = -0.7; // -0.7;
 		Point2f perspectiveSrc[4] = {
 			Point2f(cols / 4, 0), Point2f(cols / 4, rows),
 			Point2f(cols / 4 * 3, 0), Point2f(cols / 4 * 3, rows) };
