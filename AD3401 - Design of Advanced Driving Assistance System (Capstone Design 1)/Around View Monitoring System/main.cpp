@@ -3,7 +3,7 @@
 #include "AvmsDatasetReader.h"
 #include "AvmsMatcher.h"
 
-#define DEMO_VER true
+#define DEMO_VER false
 #define SET_CALIBRATION false
 
 using namespace cv;
