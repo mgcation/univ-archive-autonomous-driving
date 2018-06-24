@@ -2,40 +2,20 @@
 #include "CameraCalibrator.h"
 #include "AvmsDatasetReader.h"
 #include "AvmsMatcher.h"
+#include <ctime>
 
-#define DEMO_VER false
+#define DEMO_VER true
 #define SET_CALIBRATION false
+#define SPEED_TEST false
 
 using namespace cv;
+using namespace std;
 
 int main(){
-	/*
-v	0. file reader
-
-	1. camera calibration
-v		undistortion
-v		perspective warping
-
-	---
-
-	2. matching
-		feature extract
-		realtime resizing
-
-	3. blending
-		multi band blending
-
-	4. color correction
-		histogram stretching
-
-	5. etc
-
-	6. report
-	*/
 
 	// left - back - rear - rigt 순서로 붙임.
 	char* cameraParamsPath = "resource/camera.params";
-	char* calibrateSampleImagePath = "resource/copyright/back/back217.jpg";
+	char* calibrateSampleImagePath = "resource/demo/back217.jpg";
 	CameraCalibrator cameraCalibrator(cameraParamsPath, calibrateSampleImagePath);
 	if (cameraCalibrator.noParams() || SET_CALIBRATION){
 		cameraCalibrator.simpleParameterSetting();
@@ -49,6 +29,11 @@ v		perspective warping
 	Mat dataset_undistort[4];
 	int cols = 480;
 	int rows = 360;
+	long startTime = clock();
+	long preTime = startTime;
+	long minTime = 10000000;
+	long maxTime = 0;
+	int count = 0;
 	while (!avmsDatasetReader.end()){
 		avmsDatasetReader.read(dataset);
 		for (int i = 0; i < 4; i++){
@@ -81,8 +66,27 @@ v		perspective warping
 		imshow("right_undistortion", dataset_undistort[3]);
 		imshow("result", result);
 
-		waitKey(0);
+		long wait_ms = 50;
+		waitKey(wait_ms);
+
+		if (SPEED_TEST){
+			count++;
+			long now = clock();
+			long ms = now - preTime - wait_ms;
+			minTime = min(minTime, ms);
+			maxTime = max(maxTime, ms);
+			double fps = 1000.0 / ms;
+			long avg_ms = (now - startTime) / count - wait_ms;
+			double avg_fps = 1000.0 / avg_ms;
+			printf("%ldms (%.2lffps) / 평균(%ld, %.2lf)\n", ms, fps, avg_ms, avg_fps);
+			preTime = now;
+		}
 	}
+	if (SPEED_TEST){
+		printf("min : %ldms / max : %ldms\n", minTime, maxTime);
+	}
+	puts("end");
+	waitKey(0);
 
 	return 0;
 }
