@@ -1,7 +1,9 @@
 #include "AvmsMatcher.h"
 
-//http://www.morethantechnical.com/2011/11/13/just-a-simple-laplacian-pyramid-blender-using-opencv-wcode/
 
+
+
+//http://www.morethantechnical.com/2011/11/13/just-a-simple-laplacian-pyramid-blender-using-opencv-wcode/
 class LaplacianBlending {
 private:
 	Mat_<Vec3f> left;
@@ -22,7 +24,7 @@ private:
 	}
 
 	void buildGaussianPyramid() {
-		assert(leftLapPyr.size() > 0);
+		assert(leftLapPyr.size()>0);
 
 		maskGaussianPyramid.clear();
 		Mat currentImg;
@@ -49,7 +51,7 @@ private:
 	void buildLaplacianPyramid(const Mat& img, vector<Mat_<Vec3f> >& lapPyr, Mat& smallestLevel) {
 		lapPyr.clear();
 		Mat currentImg = img;
-		for (int l = 0; l < levels; l++) {
+		for (int l = 0; l<levels; l++) {
 			Mat down, up;
 			pyrDown(currentImg, down);
 			pyrUp(down, up, currentImg.size());
@@ -74,7 +76,7 @@ private:
 	void blendLapPyrs() {
 		resultSmallestLevel = leftSmallestLevel.mul(maskGaussianPyramid.back()) +
 			rightSmallestLevel.mul(Scalar(1.0, 1.0, 1.0) - maskGaussianPyramid.back());
-		for (int l = 0; l < levels; l++) {
+		for (int l = 0; l<levels; l++) {
 			Mat A = leftLapPyr[l].mul(maskGaussianPyramid[l]);
 			Mat antiMask = Scalar(1.0, 1.0, 1.0) - maskGaussianPyramid[l];
 			Mat B = rightLapPyr[l].mul(antiMask);
@@ -103,6 +105,11 @@ Mat_<Vec3f> LaplacianBlend(const Mat_<Vec3f>& l, const Mat_<Vec3f>& r, const Mat
 	LaplacianBlending lb(l, r, m, 4);
 	return lb.blend();
 }
+
+
+
+
+
 
 
 Mat AvmsMatcher::matchImage(Mat left, Mat back, Mat rear, Mat right){
@@ -347,6 +354,7 @@ void AvmsMatcher::stitch(Mat src, Mat dest, Mat& result, Mat H){
 
 	// 1. average blending
 	result = target[0] + target[1];
+
 	// 2. pyramid blending with average
 	result = pyramidBlending(target);
 	*/
@@ -564,13 +572,7 @@ Mat AvmsMatcher::morphologyPyrBlending(Mat src1, Mat src2){
 	r2_inter.setTo(0, seg_mask1);
 	Mat ret_inter = pyramidBlending({ r1_inter, r2_inter });
 	ret_inter.setTo(0, intersectMask == 0);
-
-	//test
-	Mat a = imread("apple.png");
-	Mat b = imread("orange.png");
-	Mat c = pyramidBlending({a, b});
-	imshow("c", c);
-	waitKey(0);
+	ret_inter.convertTo(ret_inter, CV_8UC3, 255.0);
 
 	return ret1 + ret_inter + ret2;
 }
@@ -578,21 +580,7 @@ Mat AvmsMatcher::morphologyPyrBlending(Mat src1, Mat src2){
 Mat AvmsMatcher::pyramidBlending(vector<Mat> target){
 	// study@openCV#en : https://docs.opencv.org/3.1.0/dc/dff/tutorial_py_pyramids.html
 	// --- pyramid blending
-	Mat gray;
-	cvtColor(target[0], gray, CV_BGR2GRAY);
-	for (int i = 0; i < 2; i++){
-		target[i].convertTo(target[i], CV_32F, 1.0 / 255);
-	}
 	Mat result;
-
-	// use 3rd lib
-	//------
-	Mat_<float> testMask = Mat_<float>::zeros(target[0].size());
-	testMask.setTo(1, gray);
-	result = LaplacianBlending(target[0], target[1], testMask, 3).blend();
-	result.convertTo(result, CV_8UC3, 255.0);
-	return result;
-	//------
 
 	vector<Mat> gp[2];
 	vector<Mat> lp[2];
@@ -624,8 +612,14 @@ Mat AvmsMatcher::pyramidBlending(vector<Mat> target){
 		pyrUp(result, result, lp_sum[i].size());
 		result += lp_sum[i];
 	}
-	result.convertTo(result, CV_8UC1, 255.0);
-	//return result;
+
+	Mat gray;
+	cvtColor(target[1], gray, CV_BGR2GRAY);
+	Mat_<Vec3f> a; target[0].convertTo(a, CV_32F, 1.0 / 255);
+	Mat_<Vec3f> b; target[1].convertTo(b, CV_32F, 1.0 / 255);
+	Mat_<float> testMask = Mat_<float>::zeros(a.size());
+	testMask.setTo(1, gray==0);
+	return LaplacianBlending(a, b, testMask, 6).blend();
 }
 
 
